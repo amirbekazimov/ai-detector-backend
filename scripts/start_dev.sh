@@ -14,6 +14,18 @@ fi
 echo "Checking dependencies..."
 pip install -r requirements.txt
 
+echo "Creating database tables..."
+python -c "
+from sqlalchemy import create_engine
+from app.core.config import settings
+from app.db.base import Base
+from app.models.user import User, Detection
+
+engine = create_engine(settings.DATABASE_URL)
+Base.metadata.create_all(bind=engine)
+print('✅ Database tables created successfully!')
+"
+
 echo "Starting FastAPI server..."
 echo "API docs available at: http://localhost:8000/docs"
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

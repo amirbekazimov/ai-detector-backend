@@ -13,9 +13,10 @@ class DetectionService:
     def __init__(self, db: Session):
         self.db = db
     
-    async def create_detection(self, detection_data: DetectionCreate) -> DetectionSchema:
+    async def create_detection(self, detection_data: DetectionCreate, user_id: int = None) -> DetectionSchema:
         """Create a new detection."""
         db_detection = DetectionModel(
+            user_id=user_id,
             text_content=detection_data.text_content,
             ai_probability=0.75,
             confidence_score=0.85,
