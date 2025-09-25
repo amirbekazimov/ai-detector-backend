@@ -20,6 +20,8 @@ from sqlalchemy import create_engine
 from app.core.config import settings
 from app.db.base import Base
 from app.models.user import User, Detection
+from app.models.site import Site
+from app.models.tracking import TrackingEvent
 
 engine = create_engine(settings.DATABASE_URL)
 Base.metadata.create_all(bind=engine)

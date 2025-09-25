@@ -2,15 +2,16 @@
 
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Float
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from app.db.base import Base
 
 
 class User(Base):
     """User model."""
-    
+
     __tablename__ = "users"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     username = Column(String, unique=True, index=True, nullable=False)
@@ -23,9 +24,9 @@ class User(Base):
 
 class Detection(Base):
     """AI Detection model."""
-    
+
     __tablename__ = "detections"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=True)
     text_content = Column(Text, nullable=False)
