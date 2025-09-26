@@ -39,9 +39,11 @@ async def get_site_stats(
         "domain": site.domain,
         "period_days": days,
         "total_events": stats["total_events"],
+        "ai_bot_events": stats["ai_bot_events"],
+        "human_events": stats["human_events"],
+        "ai_bot_percentage": stats["ai_bot_percentage"],
         "events_by_type": stats["events_by_type"],
-        "unique_visitors": stats["unique_visitors"],
-        "ai_bot_events": stats["events_by_type"].get("page_view", 0)  # Simplified for now
+        "unique_visitors": stats["unique_visitors"]
     }
 
 
@@ -144,8 +146,10 @@ async def get_user_sites_for_dashboard(
             "id": site.id,
             "site_id": site.site_id,
             "domain": site.domain,
-            "total_events_7d": stats["total_events"],
-            "ai_bot_events_7d": stats["events_by_type"].get("page_view", 0),  # Simplified
+            "total_events": stats["total_events"],
+            "ai_bot_events": stats["ai_bot_events"],
+            "human_events": stats["human_events"],
+            "ai_bot_percentage": stats["ai_bot_percentage"],
             "created_at": site.created_at.isoformat()
         })
     

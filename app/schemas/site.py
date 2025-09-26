@@ -36,7 +36,10 @@ class SiteInDBBase(SiteBase):
 
 class Site(SiteInDBBase):
     """Site schema for API responses."""
-    pass
+    total_events: Optional[int] = 0
+    ai_bot_events: Optional[int] = 0
+    human_events: Optional[int] = 0
+    ai_bot_percentage: Optional[float] = 0.0
 
 
 class SiteInDB(SiteInDBBase):

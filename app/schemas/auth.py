@@ -17,10 +17,19 @@ class UserLogin(BaseModel):
     password: str
 
 
+class User(BaseModel):
+    """User schema."""
+    id: str
+    email: str
+    username: str
+    created_at: str
+
+
 class Token(BaseModel):
     """Token response schema."""
     access_token: str
     token_type: str = "bearer"
+    user: User
 
 
 class TokenData(BaseModel):

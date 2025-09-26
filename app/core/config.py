@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     
-    BACKEND_CORS_ORIGINS_STR: str = Field(default="http://localhost:3000,http://localhost:8080,http://127.0.0.1:5500")
+    BACKEND_CORS_ORIGINS_STR: str = Field(default="http://localhost:3000,http://localhost:8080,http://127.0.0.1:5500,http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174")
     
     @computed_field
     @property
