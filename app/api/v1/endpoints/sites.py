@@ -108,18 +108,25 @@ async def delete_site(
 
 @router.get("/sites/{site_id}/snippet")
 async def get_js_snippet(
-    site_id: int,
+    site_id: str,  # Исправлено: str вместо int
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get JavaScript snippet for site."""
     site_service = SiteService(db)
-    site = site_service.get_site(site_id, current_user.id)
+    site = site_service.get_site_by_site_id(site_id)  # Исправлено: используем get_site_by_site_id
     
     if not site:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Site not found"
+        )
+    
+    # Проверяем что сайт принадлежит текущему пользователю
+    if site.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied"
         )
     
     # Generate JavaScript snippet

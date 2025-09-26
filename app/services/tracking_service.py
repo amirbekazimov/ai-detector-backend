@@ -117,6 +117,27 @@ class TrackingEventService:
             and_(TrackingEvent.site_id == site_id, TrackingEvent.timestamp >= since_date)
         ).group_by(TrackingEvent.event_type).all()
         
+        # AI Bot events (where is_ai_bot is not None)
+        ai_bot_events = self.db.query(TrackingEvent).filter(
+            and_(
+                TrackingEvent.site_id == site_id, 
+                TrackingEvent.timestamp >= since_date,
+                TrackingEvent.is_ai_bot.isnot(None)
+            )
+        ).count()
+        
+        # Human events (where is_ai_bot is None)
+        human_events = self.db.query(TrackingEvent).filter(
+            and_(
+                TrackingEvent.site_id == site_id, 
+                TrackingEvent.timestamp >= since_date,
+                TrackingEvent.is_ai_bot.is_(None)
+            )
+        ).count()
+        
+        # Calculate AI bot percentage
+        ai_bot_percentage = (ai_bot_events / total_events * 100) if total_events > 0 else 0
+        
         # Unique visitors (by user_agent - simplified)
         unique_visitors = self.db.query(func.count(func.distinct(TrackingEvent.user_agent))).filter(
             and_(TrackingEvent.site_id == site_id, TrackingEvent.timestamp >= since_date)
@@ -124,6 +145,9 @@ class TrackingEventService:
         
         return {
             'total_events': total_events,
+            'ai_bot_events': ai_bot_events,
+            'human_events': human_events,
+            'ai_bot_percentage': ai_bot_percentage,
             'events_by_type': {event_type: count for event_type, count in events_by_type},
             'unique_visitors': unique_visitors,
             'period_days': days

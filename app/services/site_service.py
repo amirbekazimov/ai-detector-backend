@@ -33,14 +33,35 @@ class SiteService:
         return SiteSchema.from_orm(db_site)
     
     def get_user_sites(self, user_id: int, include_deleted: bool = False) -> List[SiteSchema]:
-        """Get all sites for a user."""
+        """Get all sites for a user with statistics."""
+        from app.services.tracking_service import TrackingEventService
+        
         query = self.db.query(SiteModel).filter(SiteModel.user_id == user_id)
         
         if not include_deleted:
             query = query.filter(SiteModel.is_active == True)
         
         sites = query.all()
-        return [SiteSchema.from_orm(site) for site in sites]
+        tracking_service = TrackingEventService(self.db)
+        
+        # Add statistics to each site
+        sites_with_stats = []
+        for site in sites:
+            site_dict = SiteSchema.from_orm(site).dict()
+            
+            # Get statistics for the last 30 days
+            stats = tracking_service.get_site_stats(site.site_id, 30)
+            
+            site_dict.update({
+                'total_events': stats['total_events'],
+                'ai_bot_events': stats['ai_bot_events'],
+                'human_events': stats['human_events'],
+                'ai_bot_percentage': stats['ai_bot_percentage']
+            })
+            
+            sites_with_stats.append(SiteSchema(**site_dict))
+        
+        return sites_with_stats
     
     def get_site(self, site_id: int, user_id: int) -> Optional[SiteSchema]:
         """Get site by ID for specific user."""

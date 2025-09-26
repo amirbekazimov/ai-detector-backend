@@ -40,7 +40,13 @@ async def register_user(
     
     return {
         "access_token": access_token,
-        "token_type": "bearer"
+        "token_type": "bearer",
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "username": user.username,
+            "created_at": user.created_at.isoformat()
+        }
     }
 
 
@@ -65,5 +71,11 @@ async def login_user(
     
     return {
         "access_token": access_token,
-        "token_type": "bearer"
+        "token_type": "bearer",
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "username": user.username,
+            "created_at": user.created_at.isoformat()
+        }
     }
