@@ -6,6 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.endpoints import health, detections, auth, sites, tracking, dashboard
 from app.core.config import settings
 
+# for new db tables auto create tables if they don't exist (will work on Supabase)
+from app.db.session import engine
+from app.db.base import Base
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
@@ -13,10 +17,13 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# CORS middleware - разрешить все origins для разработки
+# auto create tables if they don't exist (will work on Supabase)
+Base.metadata.create_all(bind=engine)
+
+# CORS middleware - allow all origins for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Разрешить все origins для разработки
+    allow_origins=["*"],  # allow all origins for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
