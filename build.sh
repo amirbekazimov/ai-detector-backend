@@ -27,13 +27,6 @@ pip install --upgrade pip
 
 # Install dependencies
 echo "Installing Python dependencies..."
-# Try production requirements first, fallback to regular requirements
-if [ -f requirements-prod.txt ]; then
-    echo "Using production requirements..."
-    pip install -r requirements-prod.txt
-else
-    echo "Using regular requirements..."
-    pip install -r requirements.txt
-fi
+pip install -r requirements.txt
 
 echo "Build completed successfully!"

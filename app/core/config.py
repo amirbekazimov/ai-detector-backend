@@ -3,7 +3,7 @@
 import os
 from typing import List
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, computed_field
 
 
 class Settings(BaseModel):
@@ -15,13 +15,10 @@ class Settings(BaseModel):
     
     BACKEND_CORS_ORIGINS_STR: str = Field(default="http://localhost:3000,http://localhost:8080,http://127.0.0.1:5500,http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174")
     
-    @validator('BACKEND_CORS_ORIGINS_STR', pre=True)
-    def assemble_cors_origins(cls, v: str) -> List[str]:
-        if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
-        elif isinstance(v, (list, str)):
-            return v
-        raise ValueError(v)
+    @computed_field
+    @property
+    def BACKEND_CORS_ORIGINS(self) -> List[str]:
+        return [i.strip() for i in self.BACKEND_CORS_ORIGINS_STR.split(",")]
     
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
