@@ -3,11 +3,10 @@
 import os
 from typing import List
 
-from pydantic import Field, validator
-from pydantic_settings import BaseSettings
+from pydantic import BaseModel, Field, validator
 
 
-class Settings(BaseSettings):
+class Settings(BaseModel):
     """Application settings."""
     
     API_V1_STR: str = "/api/v1"
@@ -32,7 +31,11 @@ class Settings(BaseSettings):
     
     @property
     def DATABASE_URL(self) -> str:
-        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        # Use SQLite for local development, PostgreSQL for production
+        if self.ENVIRONMENT == "development":
+            return "sqlite:///./ai_detector.db"
+        else:
+            return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
     
     PROJECT_NAME: str = "AI Detector API"
     VERSION: str = "1.0.0"

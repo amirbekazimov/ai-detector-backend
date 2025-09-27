@@ -1,11 +1,11 @@
 # Render-compatible requirements - NO RUST DEPENDENCIES
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+# Use older FastAPI version compatible with pydantic v1
+fastapi==0.95.2
+uvicorn[standard]==0.22.0
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
 # Use older pydantic version without Rust dependencies
 pydantic==1.10.13
-pydantic-settings==1.99
 python-dotenv==1.0.0
 # Replace python-jose with PyJWT (no Rust)
 PyJWT==2.8.0
