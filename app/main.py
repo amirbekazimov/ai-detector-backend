@@ -10,6 +10,41 @@ from app.core.config import settings
 from app.db.session import engine
 from app.db.base import Base
 
+# migration for new db tables
+def run_migrations():
+    """Run database migrations."""
+    try:
+        with engine.connect() as conn:
+            # Check if name column already exists
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='sites' AND column_name='name'
+            """))
+            
+            if not result.fetchone():
+                print("🔄 Adding 'name' column to sites table...")
+                conn.execute(text("""
+                    ALTER TABLE sites 
+                    ADD COLUMN name VARCHAR NOT NULL DEFAULT ''
+                """))
+                conn.commit()
+                
+                # Update existing sites to use domain as name
+                result = conn.execute(text("""
+                    UPDATE sites 
+                    SET name = domain 
+                    WHERE name = '' OR name IS NULL
+                """))
+                conn.commit()
+                print(f"✅ Migration completed! Updated {result.rowcount} sites")
+            else:
+                print("✅ Column 'name' already exists. Migration not needed.")
+                
+    except Exception as e:
+        print(f"⚠️ Migration warning: {e}")
+        # Don't fail startup if migration fails
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
