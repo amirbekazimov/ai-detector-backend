@@ -5,7 +5,7 @@ from typing import Any, Union
 
 import jwt
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
+from argon2.exceptions import VerifyMismatchError, InvalidHashError
 
 from app.core.config import settings
 
@@ -28,11 +28,11 @@ def create_access_token(
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password."""
+    """Verify password using Argon2."""
     try:
         ph.verify(hashed_password, plain_password)
         return True
-    except VerifyMismatchError:
+    except (VerifyMismatchError, InvalidHashError):
         return False
 
 

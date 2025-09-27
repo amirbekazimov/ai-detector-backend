@@ -14,6 +14,7 @@ class Site(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False, default="")  # Site name (default empty for backward compatibility)
     domain = Column(String, nullable=False)
     site_id = Column(String, unique=True, nullable=False, index=True)  # Unique identifier for JS snippet
     is_active = Column(Boolean, default=True)  # For soft delete

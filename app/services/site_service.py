@@ -22,6 +22,7 @@ class SiteService:
         
         db_site = SiteModel(
             user_id=user_id,
+            name=site_data.name,
             domain=site_data.domain,
             site_id=site_id
         )
@@ -84,6 +85,9 @@ class SiteService:
         
         if site_data.domain is not None:
             site.domain = site_data.domain
+        
+        if site_data.name is not None:
+            site.name = site_data.name
         
         self.db.commit()
         self.db.refresh(site)

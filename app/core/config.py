@@ -22,19 +22,18 @@ class Settings(BaseModel):
     
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "password")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "root123")
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "ai_detector")
     POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
     
     @property
     def DATABASE_URL(self) -> str:
-        # Always use PostgreSQL (local and production)
-        # Use provided DATABASE_URL if available (for Supabase/Render)
+        # Use provided DATABASE_URL if available (for Supabase/Render production)
         if os.getenv("DATABASE_URL"):
             return os.getenv("DATABASE_URL")
-        else:
-            # Construct PostgreSQL URL from components (local development)
-            return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        
+        # Use local PostgreSQL for development
+        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
     
     PROJECT_NAME: str = "AI Detector API"
     VERSION: str = "1.0.0"
@@ -42,6 +41,19 @@ class Settings(BaseModel):
     
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
+    
+    # API URL for generating tracking scripts
+    @property
+    def API_URL(self) -> str:
+        # If API_URL is explicitly set, use it
+        if os.getenv("API_URL"):
+            return os.getenv("API_URL")
+        
+        # Auto-detect based on environment
+        if self.ENVIRONMENT == "production":
+            return "https://ai-detector-backend-nsv6.onrender.com"
+        else:
+            return "http://localhost:8000"
     
     class Config:
         case_sensitive = True

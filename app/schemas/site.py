@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class SiteBase(BaseModel):
     """Base site schema."""
+    name: str = Field(..., min_length=1, max_length=100, description="Site name")
     domain: str = Field(..., min_length=3, max_length=255, description="Domain name (root or subdomain)")
 
 
@@ -17,6 +18,7 @@ class SiteCreate(SiteBase):
 
 class SiteUpdate(BaseModel):
     """Site update schema."""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
     domain: Optional[str] = Field(None, min_length=3, max_length=255)
 
 
