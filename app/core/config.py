@@ -28,10 +28,12 @@ class Settings(BaseModel):
     
     @property
     def DATABASE_URL(self) -> str:
-        # Use SQLite for local development, PostgreSQL for production
-        if self.ENVIRONMENT == "development":
-            return "sqlite:///./ai_detector.db"
+        # Always use PostgreSQL (local and production)
+        # Use provided DATABASE_URL if available (for Supabase/Render)
+        if os.getenv("DATABASE_URL"):
+            return os.getenv("DATABASE_URL")
         else:
+            # Construct PostgreSQL URL from components (local development)
             return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
     
     PROJECT_NAME: str = "AI Detector API"
