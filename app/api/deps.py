@@ -4,7 +4,8 @@ from typing import Generator, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from jose import jwt, JWTError
+import jwt
+from jwt.exceptions import InvalidTokenError
 
 from app.core.config import settings
 from app.db.session import SessionLocal
@@ -39,7 +40,7 @@ def get_current_user(
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
     
     user_service = UserService(db)
