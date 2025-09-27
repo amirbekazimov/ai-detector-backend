@@ -8,6 +8,7 @@ from app.api.deps import get_db, get_current_user
 from app.schemas.site import Site, SiteCreate, SiteUpdate
 from app.services.site_service import SiteService
 from app.models.user import User
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -135,7 +136,7 @@ async def get_js_snippet(
 <script>
 (function() {{
     var script = document.createElement('script');
-    script.src = 'http://localhost:8000/api/v1/tracking/{site.site_id}.js';
+    script.src = '{settings.API_URL}/api/v1/tracking/{site.site_id}.js';
     script.async = true;
     document.head.appendChild(script);
 }})();

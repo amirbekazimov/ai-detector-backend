@@ -10,6 +10,7 @@ from app.api.deps import get_db
 from app.services.site_service import SiteService
 from app.services.tracking_service import TrackingEventService
 from app.utils.logging import log_error, log_tracking_event
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -37,7 +38,7 @@ async def get_js_snippet(
     // AI Detector Tracking Script
     var AI_DETECTOR = {{
         siteId: '{site_id}',
-        apiUrl: 'http://localhost:8000/api/v1/tracking',
+        apiUrl: '{settings.API_URL}/api/v1/tracking',
         queue: [],
         isOnline: navigator.onLine,
         
