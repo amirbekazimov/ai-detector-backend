@@ -1,0 +1,77 @@
+variables:
+  GIT_SSL_NO_VERIFY: "1"
+  TAG: $CI_PIPELINE_ID-$CI_COMMIT_SHORT_SHA
+
+stages:
+  - build
+  - deploy
+
+before_script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+docker-build:
+  stage: build
+  image: docker:latest
+  only:
+    - main
+    - dev
+  script:
+    - docker build -t $CI_PROJECT_PATH .
+    - docker tag $CI_PROJECT_PATH $CI_REGISTRY_IMAGE
+    - docker tag $CI_PROJECT_PATH $CI_REGISTRY_IMAGE:$TAG
+    - docker push $CI_REGISTRY_IMAGE
+    - docker push $CI_REGISTRY_IMAGE:$TAG
+    - docker rmi $CI_PROJECT_PATH
+    - docker rmi $CI_REGISTRY_IMAGE
+    - docker rmi $CI_REGISTRY_IMAGE:$TAG
+
+deploy-step:
+  stage: deploy
+  only:
+    - main
+  image:
+    name: debian:12-slim
+  variables:
+    KUBECONFIG: $KUBE_CONFIG
+  before_script:
+    - apt update && apt install curl yq -y
+    - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    - mv kubectl /usr/bin && chmod +x /usr/bin/kubectl
+    - cp $SSL_CERT /usr/local/share/ca-certificates/client-ca.crt &&  update-ca-certificates
+  script:
+    - kubectl create namespace main --dry-run=client -o yaml | kubectl apply -f -
+    - export IMAGE_NAME=$CI_REGISTRY_IMAGE:$TAG
+    - sed -i 's#__NAME__#'"$CI_PROJECT_PATH_SLUG"'#' manifests/deployment.yml
+    - sed -i 's#__NAME__#'"$CI_PROJECT_PATH_SLUG"'#' manifests/service.yml
+    - sed -i 's#__NAME__#'"$CI_PROJECT_PATH_SLUG"'#' manifests/configmap.yml
+    - sed -i 's#__NAME__#'"$CI_PROJECT_PATH_SLUG"'#' manifests/ingress.yml
+    - sed -i 's#__IMAGE_TAG__#'"$IMAGE_NAME"'#' manifests/deployment.yml
+    - kubectl get secret velmi-registry -n main &> /dev/null  || kubectl create secret docker-registry velmi-registry --docker-server=$CI_REGISTRY --docker-username=$CI_REGISTRY_USER --docker-password=$REGISTRY_TOKEN  --docker-email=admin@velmi.ai -n main
+    - kubectl apply -f manifests/ -n main
+    - kubectl apply -f manifests/ingress.yml -n main
+
+
+deploy-step-dev:
+  stage: deploy
+  only:
+    - dev
+  image:
+    name: debian:12-slim
+  variables:
+    KUBECONFIG: $KUBE_CONFIG
+  before_script:
+    - apt update && apt install curl yq -y
+    - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    - mv kubectl /usr/bin && chmod +x /usr/bin/kubectl
+    - cp $SSL_CERT /usr/local/share/ca-certificates/client-ca.crt &&  update-ca-certificates
+  script:
+    - kubectl create namespace dev --dry-run=client -o yaml | kubectl apply -f -
+    - export IMAGE_NAME=$CI_REGISTRY_IMAGE:$TAG
+    - sed -i 's#__NAME__#'"$CI_PROJECT_PATH_SLUG"'#' manifests/deployment.yml
+    - sed -i 's#__NAME__#'"$CI_PROJECT_PATH_SLUG"'#' manifests/service.yml
+    - sed -i 's#__NAME__#'"$CI_PROJECT_PATH_SLUG"'#' manifests/configmap.yml
+    - sed -i 's#__NAME__#'"$CI_PROJECT_PATH_SLUG"'#' manifests/ingress.yml
+    - sed -i 's#__IMAGE_TAG__#'"$IMAGE_NAME"'#' manifests/deployment.yml
+    - kubectl get secret velmi-registry -n dev &> /dev/null  || kubectl create secret docker-registry velmi-registry --docker-server=$CI_REGISTRY --docker-username=$CI_REGISTRY_USER --docker-password=$REGISTRY_TOKEN  --docker-email=admin@velmi.ai -n dev
+    - kubectl apply -f manifests/ -n dev
+    - kubectl apply -f manifests/ingress.yml -n dev

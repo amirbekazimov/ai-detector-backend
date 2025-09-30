@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: __NAME__
+  labels:
+    app: aidetector
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: aidetector
+  template:
+    metadata:
+      labels:
+        app: aidetector
+    spec:
+      imagePullSecrets:
+        - name: velmi-registry
+      containers:
+        - name: aidetector
+          image: __IMAGE_TAG__
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: __NAME__-config

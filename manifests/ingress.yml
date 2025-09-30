@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aidetector-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: 150m
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "180"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "180"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "180"
+    nginx.ingress.kubernetes.io/send-timeout: "180"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - back.aidetector.velmi.ai
+      secretName: aidetector-velmi-ai-tls
+  rules:
+    - host: back.aidetector.velmi.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: velmi-ai-group-aidetector-app-aidetector-app-backend-back-service
+                port:
+                  number: 80
