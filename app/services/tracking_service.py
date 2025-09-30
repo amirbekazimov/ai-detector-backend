@@ -16,13 +16,17 @@ class TrackingEventService:
     def __init__(self, db: Session):
         self.db = db
     
-    def create_tracking_event(self, event_data: Dict[str, Any], ip_address: str = None) -> TrackingEvent:
-        """Create a new tracking event."""
+    def create_tracking_event(self, event_data: Dict[str, Any], ip_address: str = None) -> Optional[TrackingEvent]:
+        """Create a new tracking event - only for AI bots."""
         user_agent = event_data.get('user_agent')
         
         # Detect AI bot
         bot_category, bot_pattern = AIBotDetectionService.detect_ai_bot(user_agent)
         bot_name = AIBotDetectionService.get_bot_name(user_agent)
+        
+        # Only save events from AI bots
+        if not bot_category:
+            return None
         
         db_event = TrackingEvent(
             site_id=event_data.get('site_id'),
@@ -50,7 +54,7 @@ class TrackingEventService:
         return db_event
     
     def create_batch_tracking_events(self, events_data: List[Dict[str, Any]], ip_address: str = None) -> List[TrackingEvent]:
-        """Create multiple tracking events in batch."""
+        """Create multiple tracking events in batch - only for AI bots."""
         db_events = []
         
         for event_data in events_data:
@@ -59,6 +63,10 @@ class TrackingEventService:
             # Detect AI bot
             bot_category, bot_pattern = AIBotDetectionService.detect_ai_bot(user_agent)
             bot_name = AIBotDetectionService.get_bot_name(user_agent)
+            
+            # Only save events from AI bots
+            if not bot_category:
+                continue
             
             db_event = TrackingEvent(
                 site_id=event_data.get('site_id'),
@@ -80,11 +88,12 @@ class TrackingEventService:
             )
             db_events.append(db_event)
         
-        self.db.add_all(db_events)
-        self.db.commit()
-        
-        for event in db_events:
-            self.db.refresh(event)
+        if db_events:
+            self.db.add_all(db_events)
+            self.db.commit()
+            
+            for event in db_events:
+                self.db.refresh(event)
         
         return db_events
     
@@ -94,17 +103,22 @@ class TrackingEventService:
             TrackingEvent.site_id == site_id
         ).order_by(desc(TrackingEvent.timestamp)).offset(offset).limit(limit).all()
     
-    def get_site_events_by_type(self, site_id: str, event_type: str, limit: int = 100) -> List[TrackingEvent]:
+    def get_site_events_by_type(self, site_id: str, event_type: str, limit: int = 100, bot_type: str = None) -> List[TrackingEvent]:
         """Get tracking events of specific type for a site."""
-        return self.db.query(TrackingEvent).filter(
+        query = self.db.query(TrackingEvent).filter(
             and_(TrackingEvent.site_id == site_id, TrackingEvent.event_type == event_type)
-        ).order_by(desc(TrackingEvent.timestamp)).limit(limit).all()
+        )
+        
+        if bot_type:
+            query = query.filter(TrackingEvent.is_ai_bot == bot_type)
+            
+        return query.order_by(desc(TrackingEvent.timestamp)).limit(limit).all()
     
     def get_site_stats(self, site_id: str, days: int = 30) -> Dict[str, Any]:
-        """Get statistics for a site."""
+        """Get statistics for a site - only AI bots."""
         since_date = datetime.now() - timedelta(days=days)
         
-        # Total events
+        # All events are AI bot events now
         total_events = self.db.query(TrackingEvent).filter(
             and_(TrackingEvent.site_id == site_id, TrackingEvent.timestamp >= since_date)
         ).count()
@@ -117,39 +131,27 @@ class TrackingEventService:
             and_(TrackingEvent.site_id == site_id, TrackingEvent.timestamp >= since_date)
         ).group_by(TrackingEvent.event_type).all()
         
-        # AI Bot events (where is_ai_bot is not None)
-        ai_bot_events = self.db.query(TrackingEvent).filter(
-            and_(
-                TrackingEvent.site_id == site_id, 
-                TrackingEvent.timestamp >= since_date,
-                TrackingEvent.is_ai_bot.isnot(None)
-            )
-        ).count()
+        # Bot types distribution
+        bot_types = self.db.query(
+            TrackingEvent.is_ai_bot,
+            func.count(TrackingEvent.id).label('count')
+        ).filter(
+            and_(TrackingEvent.site_id == site_id, TrackingEvent.timestamp >= since_date)
+        ).group_by(TrackingEvent.is_ai_bot).all()
         
-        # Human events (where is_ai_bot is None)
-        human_events = self.db.query(TrackingEvent).filter(
-            and_(
-                TrackingEvent.site_id == site_id, 
-                TrackingEvent.timestamp >= since_date,
-                TrackingEvent.is_ai_bot.is_(None)
-            )
-        ).count()
-        
-        # Calculate AI bot percentage
-        ai_bot_percentage = (ai_bot_events / total_events * 100) if total_events > 0 else 0
-        
-        # Unique visitors (by user_agent - simplified)
-        unique_visitors = self.db.query(func.count(func.distinct(TrackingEvent.user_agent))).filter(
+        # Unique bot visitors (by user_agent - simplified)
+        unique_bots = self.db.query(func.count(func.distinct(TrackingEvent.user_agent))).filter(
             and_(TrackingEvent.site_id == site_id, TrackingEvent.timestamp >= since_date)
         ).scalar()
         
         return {
             'total_events': total_events,
-            'ai_bot_events': ai_bot_events,
-            'human_events': human_events,
-            'ai_bot_percentage': ai_bot_percentage,
+            'ai_bot_events': total_events,  # All events are AI bot events
+            'human_events': 0,  # No human events stored
+            'ai_bot_percentage': 100.0,  # All events are AI bots
             'events_by_type': {event_type: count for event_type, count in events_by_type},
-            'unique_visitors': unique_visitors,
+            'bot_types': {bot_type: count for bot_type, count in bot_types},
+            'unique_visitors': unique_bots,
             'period_days': days
         }
     
@@ -158,15 +160,14 @@ class TrackingEventService:
         return self.db.query(TrackingEvent).filter(TrackingEvent.site_id == site_id).count()
     
     def get_daily_stats(self, site_id: str, days: int = 30) -> List[Dict[str, Any]]:
-        """Get daily statistics for a site."""
+        """Get daily statistics for a site - only AI bots."""
         since_date = datetime.now() - timedelta(days=days)
         
-        # Get daily counts
+        # Get daily counts - all events are AI bot events
         daily_counts = self.db.query(
             func.date(TrackingEvent.timestamp).label('date'),
             func.count(TrackingEvent.id).label('total_events'),
-            func.count(TrackingEvent.id).filter(TrackingEvent.is_ai_bot.isnot(None)).label('ai_bot_events'),
-            func.count(TrackingEvent.id).filter(TrackingEvent.is_ai_bot.is_(None)).label('human_events')
+            func.count(TrackingEvent.id).label('ai_bot_events')  # All events are AI bot events
         ).filter(
             and_(TrackingEvent.site_id == site_id, TrackingEvent.timestamp >= since_date)
         ).group_by(func.date(TrackingEvent.timestamp)).order_by(func.date(TrackingEvent.timestamp)).all()
@@ -178,7 +179,42 @@ class TrackingEventService:
                 'date': row.date.isoformat(),
                 'total_events': row.total_events,
                 'ai_bot_events': row.ai_bot_events,
-                'human_events': row.human_events
+                'human_events': 0  # No human events
             })
         
         return daily_stats
+    
+    def get_bot_types_stats(self, site_id: str, days: int = 30) -> Dict[str, Any]:
+        """Get statistics by bot types for a site."""
+        since_date = datetime.now() - timedelta(days=days)
+        
+        # Get bot types distribution
+        bot_types = self.db.query(
+            TrackingEvent.is_ai_bot,
+            func.count(TrackingEvent.id).label('count')
+        ).filter(
+            and_(TrackingEvent.site_id == site_id, TrackingEvent.timestamp >= since_date)
+        ).group_by(TrackingEvent.is_ai_bot).all()
+        
+        # Get daily bot types
+        daily_bot_types = self.db.query(
+            func.date(TrackingEvent.timestamp).label('date'),
+            TrackingEvent.is_ai_bot,
+            func.count(TrackingEvent.id).label('count')
+        ).filter(
+            and_(TrackingEvent.site_id == site_id, TrackingEvent.timestamp >= since_date)
+        ).group_by(func.date(TrackingEvent.timestamp), TrackingEvent.is_ai_bot).order_by(func.date(TrackingEvent.timestamp)).all()
+        
+        # Format daily data
+        daily_data = {}
+        for row in daily_bot_types:
+            date_str = row.date.isoformat()
+            if date_str not in daily_data:
+                daily_data[date_str] = {}
+            daily_data[date_str][row.is_ai_bot] = row.count
+        
+        return {
+            'bot_types': {bot_type: count for bot_type, count in bot_types},
+            'daily_bot_types': daily_data,
+            'period_days': days
+        }

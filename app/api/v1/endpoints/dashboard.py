@@ -43,6 +43,7 @@ async def get_site_stats(
         "human_events": stats["human_events"],
         "ai_bot_percentage": stats["ai_bot_percentage"],
         "events_by_type": stats["events_by_type"],
+        "bot_types": stats["bot_types"],
         "unique_visitors": stats["unique_visitors"]
     }
 
@@ -53,6 +54,7 @@ async def get_site_visits(
     days: int = Query(default=7, ge=1, le=30, description="Number of days to analyze"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of visits to return"),
     offset: int = Query(default=0, ge=0, description="Offset for pagination"),
+    bot_type: str = Query(default=None, description="Filter by bot type"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -69,21 +71,21 @@ async def get_site_visits(
     
     tracking_service = TrackingEventService(db)
     
-    # Get visits (page_view events)
-    visits = tracking_service.get_site_events_by_type(site_id, "page_view", limit)
+    # Get visits (page_view events) with optional bot type filter
+    visits = tracking_service.get_site_events_by_type(site_id, "page_view", limit, bot_type=bot_type)
     
-    # Format visits for dashboard
+    # Format visits for dashboard - only AI bots
     formatted_visits = []
     for visit in visits:
         formatted_visits.append({
             "id": visit.id,
             "timestamp": visit.timestamp.isoformat(),
-            "bot_name": visit.bot_name if visit.is_ai_bot else "unknown",
+            "bot_name": visit.bot_name,
+            "bot_type": visit.is_ai_bot,
             "user_agent": visit.user_agent,
             "ip_address": visit.ip_address,
             "path": visit.path,
             "url": visit.url,
-            "is_ai_bot": visit.is_ai_bot is not None,
             "referrer": visit.referrer
         })
     
@@ -156,4 +158,34 @@ async def get_user_sites_for_dashboard(
     return {
         "sites": sites_with_stats,
         "total_sites": len(sites_with_stats)
+    }
+
+
+@router.get("/bot-types/{site_id}")
+async def get_bot_types_stats(
+    site_id: str,
+    days: int = Query(default=7, ge=1, le=30, description="Number of days to analyze"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get bot types statistics for a specific site."""
+    # Verify user owns the site
+    site_service = SiteService(db)
+    site = site_service.get_site_by_site_id(site_id)
+    
+    if not site or site.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Site not found"
+        )
+    
+    tracking_service = TrackingEventService(db)
+    bot_stats = tracking_service.get_bot_types_stats(site_id, days)
+    
+    return {
+        "site_id": site_id,
+        "domain": site.domain,
+        "period_days": days,
+        "bot_types": bot_stats["bot_types"],
+        "daily_bot_types": bot_stats["daily_bot_types"]
     }

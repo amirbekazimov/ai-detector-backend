@@ -9,43 +9,63 @@ class AIBotDetectionService:
     
     # Known AI bot patterns
     AI_BOT_PATTERNS = {
-        'GPTBot': [
+        'ChatGPT': [
             r'GPTBot',
             r'ChatGPT-User',
             r'OpenAI',
+            r'ChatGPT',
         ],
-        'Perplexity': [
-            r'PerplexityBot',
-            r'Perplexity',
-        ],
-        'Google Gemini': [
-            r'Google-Extended',
-            r'Gemini',
-            r'GoogleAI',
+        'DeepSeek': [
+            r'DeepSeek',
+            r'DeepSeekBot',
+            r'DeepSeek-Crawler',
         ],
         'Claude': [
             r'Claude-Web',
             r'Anthropic',
             r'ClaudeBot',
+            r'Claude',
+        ],
+        'Gemini': [
+            r'Google-Extended',
+            r'Gemini',
+            r'GoogleAI',
+            r'GeminiBot',
+        ],
+        'Perplexity': [
+            r'PerplexityBot',
+            r'Perplexity',
+            r'PerplexityAI',
         ],
         'Bing AI': [
             r'BingBot',
             r'Microsoft-BingBot',
             r'BingPreview',
+            r'BingAI',
         ],
         'Meta AI': [
             r'facebookexternalhit',
             r'MetaBot',
+            r'MetaAI',
+        ],
+        'Character.AI': [
+            r'Character\.AI',
+            r'CharacterAI',
+        ],
+        'You.com': [
+            r'YouBot',
+            r'You\.com',
         ],
         'Other AI Bots': [
             r'AI2Bot',
-            r'YouBot',
-            r'Character\.AI',
             r'JasperBot',
             r'Copy\.ai',
             r'NotionBot',
             r'SlackBot',
             r'DiscordBot',
+            r'CohereBot',
+            r'ReplicateBot',
+            r'HuggingFaceBot',
         ]
     }
     
