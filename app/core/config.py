@@ -51,7 +51,7 @@ class Settings(BaseModel):
         
         # Auto-detect based on environment
         if self.ENVIRONMENT == "production":
-            return "https://ai-detector-backend-nsv6.onrender.com"
+            return "https://back.aidetector.velmi.ai"
         else:
             return "http://localhost:8000"
     
