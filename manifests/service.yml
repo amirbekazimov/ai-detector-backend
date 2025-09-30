@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: velmi-ai-group-aidetector-app-aidetector-app-backend-back-service
+  name: velmi-ai-group-aidet-app-aidet-app-backend-back-service
 spec:
   selector:
     app: aidetector

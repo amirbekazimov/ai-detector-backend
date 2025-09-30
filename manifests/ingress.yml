@@ -23,6 +23,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: velmi-ai-group-aidetector-app-aidetector-app-backend-back-service
+                name: velmi-ai-group-aidet-app-aidet-app-backend-back-service
                 port:
                   number: 80
