@@ -143,7 +143,7 @@ async def get_user_sites_for_dashboard(
     
     sites_with_stats = []
     for site in sites:
-        stats = tracking_service.get_site_stats(site.site_id, 7)  # Last 7 days
+        stats = tracking_service.get_site_stats(site.site_id, 30)  # Last 30 days
         sites_with_stats.append({
             "id": site.id,
             "site_id": site.site_id,
