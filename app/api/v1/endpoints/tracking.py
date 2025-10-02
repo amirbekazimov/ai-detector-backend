@@ -35,15 +35,35 @@ async def get_js_snippet(
 (function() {{
     'use strict';
     
+    // Version 2.0 - Fixed duplicate events
+    console.log('AI_DETECTOR v2.0 loading...');
+    
+    // Prevent multiple initializations
+    if (window.AI_DETECTOR_INITIALIZED) {{
+        console.log('AI_DETECTOR already initialized, skipping');
+        return;
+    }}
+    window.AI_DETECTOR_INITIALIZED = true;
+    
     // AI Detector Tracking Script
     var AI_DETECTOR = {{
         siteId: '{site_id}',
         apiUrl: '{settings.API_URL}/api/v1/tracking',
         queue: [],
         isOnline: navigator.onLine,
+        sentEvents: new Set(), // Track sent events to prevent duplicates
+        eventCounter: 0, // Counter for unique event IDs
+        initialized: false, // Prevent multiple initializations
         
         // Initialize tracking
         init: function() {{
+            if (this.initialized) {{
+                console.log('AI_DETECTOR already initialized, skipping init');
+                return;
+            }}
+            this.initialized = true;
+            console.log('AI_DETECTOR initializing...');
+            
             this.trackPageView();
             this.setupEventListeners();
             this.processQueue();
@@ -63,9 +83,11 @@ async def get_js_snippet(
                 screen_resolution: screen.width + 'x' + screen.height,
                 viewport_size: window.innerWidth + 'x' + window.innerHeight,
                 language: navigator.language,
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                event_id: ++this.eventCounter // Add unique event ID
             }};
             
+            console.log('Sending page_view event:', data.event_id);
             this.sendData(data);
         }},
         
@@ -73,22 +95,12 @@ async def get_js_snippet(
         setupEventListeners: function() {{
             var self = this;
             
-            // Track page visibility changes
-            document.addEventListener('visibilitychange', function() {{
-                if (document.hidden) {{
-                    self.trackEvent('page_hidden');
-                }} else {{
-                    self.trackEvent('page_visible');
-                }}
-            }});
+            console.log('Setting up event listeners - TEST MODE: Only page_view events');
             
-            // Track before page unload
-            window.addEventListener('beforeunload', function() {{
-                self.trackEvent('page_unload');
-                self.flushQueue();
-            }});
+            // TEST MODE: Disable all extra events to get only +1 count
+            // All visibilitychange, beforeunload, and click events are disabled
             
-            // Track online/offline status
+            // Track online/offline status only
             window.addEventListener('online', function() {{
                 self.isOnline = true;
                 self.processQueue();
@@ -98,15 +110,7 @@ async def get_js_snippet(
                 self.isOnline = false;
             }});
             
-            // Track clicks (optional)
-            document.addEventListener('click', function(e) {{
-                if (e.target.tagName === 'A') {{
-                    self.trackEvent('link_click', {{
-                        href: e.target.href,
-                        text: e.target.textContent.trim()
-                    }});
-                }}
-            }});
+            console.log('Event listeners setup complete - only page_view will be tracked');
         }},
         
         // Track custom event
@@ -116,6 +120,7 @@ async def get_js_snippet(
                 event_type: eventType,
                 url: window.location.href,
                 timestamp: new Date().toISOString(),
+                event_id: ++this.eventCounter, // Add unique event ID
                 data: data || {{}}
             }};
             
@@ -124,6 +129,15 @@ async def get_js_snippet(
         
         // Send data to server
         sendData: function(data) {{
+            // Create unique event key using event_id instead of timestamp
+            var eventKey = data.event_type + '_' + data.event_id + '_' + data.url;
+            
+            // Check if event already sent
+            if (this.sentEvents.has(eventKey)) {{
+                console.log('Event already sent, skipping:', eventKey);
+                return; // Already sent, skip
+            }}
+            
             if (!this.isOnline) {{
                 this.queue.push(data);
                 return;
@@ -138,10 +152,13 @@ async def get_js_snippet(
             xhr.onreadystatechange = function() {{
                 if (xhr.readyState === 4) {{
                     if (xhr.status >= 200 && xhr.status < 300) {{
-                        // Success
+                        // Success - mark as sent
+                        self.sentEvents.add(eventKey);
+                        console.log('Event sent successfully:', eventKey);
                     }} else {{
                         // Failed, add to queue for retry
                         self.queue.push(data);
+                        console.log('Event failed, added to queue:', eventKey);
                     }}
                 }}
             }};
@@ -160,7 +177,13 @@ async def get_js_snippet(
             this.queue = [];
             
             queue.forEach(function(data) {{
-                self.sendData(data);
+                // Check if event already sent before processing queue
+                var eventKey = data.event_type + '_' + data.event_id + '_' + data.url;
+                if (!self.sentEvents.has(eventKey)) {{
+                    self.sendData(data);
+                }} else {{
+                    console.log('Queued event already sent, skipping:', eventKey);
+                }}
             }});
         }},
         
@@ -170,7 +193,20 @@ async def get_js_snippet(
                 return;
             }}
             
-            var data = JSON.stringify(this.queue);
+            // Filter out already sent events before batch sending
+            var self = this;
+            var unsentEvents = this.queue.filter(function(data) {{
+                var eventKey = data.event_type + '_' + data.event_id + '_' + data.url;
+                return !self.sentEvents.has(eventKey);
+            }});
+            
+            if (unsentEvents.length === 0) {{
+                console.log('No unsent events to flush');
+                return;
+            }}
+            
+            console.log('Flushing', unsentEvents.length, 'unsent events');
+            var data = JSON.stringify(unsentEvents);
             var xhr = new XMLHttpRequest();
             xhr.open('POST', this.apiUrl + '/events/batch', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
@@ -192,7 +228,12 @@ async def get_js_snippet(
 }})();
 """.strip()
     
-    return js_snippet
+    # Return with no-cache headers to prevent browser caching
+    response = Response(content=js_snippet, media_type="application/javascript")
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @router.options("/events")
@@ -232,6 +273,24 @@ async def receive_tracking_event(
         tracking_service = TrackingEventService(db)
         event = tracking_service.create_tracking_event(data, ip_address=client_ip)
         
+        # Check if event was saved (only AI bots are saved)
+        if event is None:
+            print(f"Event ignored - not an AI bot (User-Agent: {data.get('user_agent', 'unknown')})")
+            return Response(
+                content=json.dumps({
+                    "status": "ignored", 
+                    "message": "Event ignored - not an AI bot", 
+                    "is_ai_bot": False
+                }),
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+                    "Content-Type": "application/json"
+                }
+            )
+        
         # Log tracking event
         log_tracking_event(
             event_type=event.event_type,
@@ -265,14 +324,26 @@ async def receive_tracking_event(
     except Exception as e:
         error_message = f"Error processing tracking event: {str(e)}"
         print(error_message)
+        
+        # Log error
         log_error(
             error_message=error_message,
             error_details=str(e),
             site_id=data.get('site_id') if 'data' in locals() else None
         )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid tracking data"
+        
+        return Response(
+            content=json.dumps({
+                "status": "error", 
+                "message": "Failed to process event"
+            }),
+            status_code=400,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+                "Content-Type": "application/json"
+            }
         )
 
 
@@ -338,8 +409,25 @@ async def receive_batch_tracking_events(
         )
         
     except Exception as e:
-        print(f"Error processing batch tracking events: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid batch tracking data"
+        error_message = f"Error processing batch tracking events: {str(e)}"
+        print(error_message)
+        
+        # Log error
+        log_error(
+            error_message=error_message,
+            error_details=str(e)
+        )
+        
+        return Response(
+            content=json.dumps({
+                "status": "error", 
+                "message": "Failed to process batch events"
+            }),
+            status_code=400,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+                "Content-Type": "application/json"
+            }
         )
