@@ -55,7 +55,7 @@ async def get_site(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get specific site by ID."""
+    """Get a specific site by ID."""
     site_service = SiteService(db)
     site = site_service.get_site(site_id, current_user.id)
     
@@ -66,6 +66,51 @@ async def get_site(
         )
     
     return site
+
+
+@router.get("/sites/{site_id}/tracking-code")
+async def get_tracking_code(
+    site_id: str,
+    db: Session = Depends(get_db)
+):
+    """Get tracking code for a specific site."""
+    site_service = SiteService(db)
+    
+    # Try by numeric ID first, then by site_id string
+    site = None
+    try:
+        numeric_id = int(site_id)
+        site = site_service.get_site_by_id(numeric_id)
+    except ValueError:
+        # If not numeric, try by site_id string
+        site = site_service.get_site_by_site_id(site_id)
+    
+    if not site:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Site not found"
+        )
+    
+    # Generate tracking code snippet
+    tracking_code = f"""<!-- AI Detector Tracking Code -->
+<script src="{settings.API_URL}/api/v1/tracking/{site.site_id}.js"></script>
+<!-- End AI Detector -->"""
+    
+    return {
+        "site_id": site.site_id,
+        "site_name": site.name,
+        "domain": site.domain,
+        "tracking_code": tracking_code,
+        "script_url": f"{settings.API_URL}/api/v1/tracking/{site.site_id}.js",
+        "server_page_url": f"{settings.API_URL}/api/v1/client-page?site_id={site.site_id}",
+        "instructions": {
+            "step1": "Copy the tracking code above and paste it before the closing </body> tag on your website",
+            "step2": "The script will automatically detect AI bots visiting your site",
+            "step3": "For testing with ChatGPT, use the server page URL",
+            "step4": "View detection results in your dashboard",
+            "note": "Server page URL works for AI bots that don't execute JavaScript"
+        }
+    }
 
 
 @router.put("/sites/{site_id}", response_model=Site)

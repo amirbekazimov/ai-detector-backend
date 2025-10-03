@@ -74,6 +74,14 @@ class SiteService:
             return SiteSchema.from_orm(site)
         return None
     
+    def get_site_by_id(self, site_id: int) -> Optional[SiteSchema]:
+        """Get site by ID (public for tracking endpoints)."""
+        site = self.db.query(SiteModel).filter(SiteModel.id == site_id).first()
+        
+        if site:
+            return SiteSchema.from_orm(site)
+        return None
+    
     def update_site(self, site_id: int, site_data: SiteUpdate, user_id: int) -> Optional[SiteSchema]:
         """Update site."""
         site = self.db.query(SiteModel).filter(

@@ -20,9 +20,10 @@ class TrackingEventService:
         """Create a new tracking event - only for AI bots."""
         user_agent = event_data.get('user_agent')
         
-        # Detect AI bot
-        bot_category, bot_pattern = AIBotDetectionService.detect_ai_bot(user_agent)
-        bot_name = AIBotDetectionService.get_bot_name(user_agent)
+        # Detect AI bot using comprehensive method (User-Agent + IP)
+        bot_category, bot_name, detection_method = AIBotDetectionService.detect_ai_bot_comprehensive(
+            user_agent, ip_address, self.db
+        )
         
         # TEST MODE DISABLED: Only real AI bots are tracked
         # Uncomment the block below to enable test mode
@@ -51,6 +52,7 @@ class TrackingEventService:
             event_data=event_data.get('data', {}),
             is_ai_bot=bot_category,
             bot_name=bot_name,
+            detection_method=detection_method,
             timestamp=datetime.fromisoformat(event_data.get('timestamp', datetime.now().isoformat()))
         )
         

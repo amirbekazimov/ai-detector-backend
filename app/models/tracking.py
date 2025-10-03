@@ -30,6 +30,7 @@ class TrackingEvent(Base):
     # AI Bot Detection
     is_ai_bot = Column(String, nullable=True)  # Bot name if detected, null if not
     bot_name = Column(String, nullable=True)  # Name of the AI bot (GPTBot, Perplexity, etc.)
+    detection_method = Column(String, nullable=True)  # How bot was detected: user_agent, ip_address, both
     
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -35,8 +35,8 @@ async def get_js_snippet(
 (function() {{
     'use strict';
     
-    // Version 2.0 - Fixed duplicate events
-    console.log('AI_DETECTOR v2.0 loading...');
+    // AI Detector v3.0 - Professional AI Bot Detection
+    console.log('AI_DETECTOR v3.0 loading...');
     
     // Prevent multiple initializations
     if (window.AI_DETECTOR_INITIALIZED) {{
@@ -51,9 +51,9 @@ async def get_js_snippet(
         apiUrl: '{settings.API_URL}/api/v1/tracking',
         queue: [],
         isOnline: navigator.onLine,
-        sentEvents: new Set(), // Track sent events to prevent duplicates
-        eventCounter: 0, // Counter for unique event IDs
-        initialized: false, // Prevent multiple initializations
+        sentEvents: new Set(),
+        eventCounter: 0,
+        initialized: false,
         
         // Initialize tracking
         init: function() {{
@@ -62,7 +62,7 @@ async def get_js_snippet(
                 return;
             }}
             this.initialized = true;
-            console.log('AI_DETECTOR initializing...');
+            console.log('AI_DETECTOR initializing for site: {site_id}');
             
             this.trackPageView();
             this.setupEventListeners();
@@ -84,10 +84,10 @@ async def get_js_snippet(
                 viewport_size: window.innerWidth + 'x' + window.innerHeight,
                 language: navigator.language,
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                event_id: ++this.eventCounter // Add unique event ID
+                event_id: ++this.eventCounter
             }};
             
-            console.log('Sending page_view event:', data.event_id);
+            console.log('AI_DETECTOR: Sending page_view event');
             this.sendData(data);
         }},
         
@@ -95,12 +95,7 @@ async def get_js_snippet(
         setupEventListeners: function() {{
             var self = this;
             
-            console.log('Setting up event listeners - TEST MODE: Only page_view events');
-            
-            // TEST MODE: Disable all extra events to get only +1 count
-            // All visibilitychange, beforeunload, and click events are disabled
-            
-            // Track online/offline status only
+            // Track online/offline status
             window.addEventListener('online', function() {{
                 self.isOnline = true;
                 self.processQueue();
@@ -110,7 +105,7 @@ async def get_js_snippet(
                 self.isOnline = false;
             }});
             
-            console.log('Event listeners setup complete - only page_view will be tracked');
+            console.log('AI_DETECTOR: Event listeners setup complete');
         }},
         
         // Track custom event
@@ -120,7 +115,7 @@ async def get_js_snippet(
                 event_type: eventType,
                 url: window.location.href,
                 timestamp: new Date().toISOString(),
-                event_id: ++this.eventCounter, // Add unique event ID
+                event_id: ++this.eventCounter,
                 data: data || {{}}
             }};
             
@@ -129,13 +124,11 @@ async def get_js_snippet(
         
         // Send data to server
         sendData: function(data) {{
-            // Create unique event key using event_id instead of timestamp
             var eventKey = data.event_type + '_' + data.event_id + '_' + data.url;
             
-            // Check if event already sent
             if (this.sentEvents.has(eventKey)) {{
-                console.log('Event already sent, skipping:', eventKey);
-                return; // Already sent, skip
+                console.log('AI_DETECTOR: Event already sent, skipping');
+                return;
             }}
             
             if (!this.isOnline) {{
@@ -152,13 +145,21 @@ async def get_js_snippet(
             xhr.onreadystatechange = function() {{
                 if (xhr.readyState === 4) {{
                     if (xhr.status >= 200 && xhr.status < 300) {{
-                        // Success - mark as sent
-                        self.sentEvents.add(eventKey);
-                        console.log('Event sent successfully:', eventKey);
+                        try {{
+                            var response = JSON.parse(xhr.responseText);
+                            self.sentEvents.add(eventKey);
+                            
+                            if (response.is_ai_bot) {{
+                                console.log('AI_DETECTOR: AI Bot detected -', response.bot_name, '(' + response.detection_method + ')');
+                            }} else {{
+                                console.log('AI_DETECTOR: Human visitor detected');
+                            }}
+                        }} catch (e) {{
+                            console.log('AI_DETECTOR: Event sent successfully');
+                        }}
                     }} else {{
-                        // Failed, add to queue for retry
                         self.queue.push(data);
-                        console.log('Event failed, added to queue:', eventKey);
+                        console.log('AI_DETECTOR: Event failed, added to queue');
                     }}
                 }}
             }};
@@ -177,12 +178,9 @@ async def get_js_snippet(
             this.queue = [];
             
             queue.forEach(function(data) {{
-                // Check if event already sent before processing queue
                 var eventKey = data.event_type + '_' + data.event_id + '_' + data.url;
                 if (!self.sentEvents.has(eventKey)) {{
                     self.sendData(data);
-                }} else {{
-                    console.log('Queued event already sent, skipping:', eventKey);
                 }}
             }});
         }},
@@ -193,7 +191,6 @@ async def get_js_snippet(
                 return;
             }}
             
-            // Filter out already sent events before batch sending
             var self = this;
             var unsentEvents = this.queue.filter(function(data) {{
                 var eventKey = data.event_type + '_' + data.event_id + '_' + data.url;
@@ -201,11 +198,9 @@ async def get_js_snippet(
             }});
             
             if (unsentEvents.length === 0) {{
-                console.log('No unsent events to flush');
                 return;
             }}
             
-            console.log('Flushing', unsentEvents.length, 'unsent events');
             var data = JSON.stringify(unsentEvents);
             var xhr = new XMLHttpRequest();
             xhr.open('POST', this.apiUrl + '/events/batch', true);
@@ -302,7 +297,8 @@ async def receive_tracking_event(
         )
         
         bot_info = f" (AI Bot: {event.bot_name})" if event.is_ai_bot else " (Human visitor)"
-        print(f"Event saved to database with ID: {event.id}{bot_info}")
+        detection_info = f" [{event.detection_method}]" if event.detection_method else ""
+        print(f"Event saved to database with ID: {event.id}{bot_info}{detection_info}")
         
         return Response(
             content=json.dumps({

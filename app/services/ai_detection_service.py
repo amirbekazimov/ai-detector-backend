@@ -2,10 +2,13 @@
 
 import re
 from typing import Optional, Tuple
+from sqlalchemy.orm import Session
+
+from app.services.ip_range_service import IPRangeService
 
 
 class AIBotDetectionService:
-    """Service for detecting AI bots based on User-Agent strings."""
+    """Service for detecting AI bots based on User-Agent strings and IP addresses."""
     
     # Known AI bot patterns
     AI_BOT_PATTERNS = {
@@ -128,3 +131,62 @@ class AIBotDetectionService:
             return bot_category
             
         return 'unknown'
+    
+    @classmethod
+    def detect_ai_bot_comprehensive(cls, user_agent: str, ip_address: str, db: Session) -> Tuple[Optional[str], Optional[str], str]:
+        """
+        Comprehensive AI bot detection using both User-Agent and IP address.
+        
+        Args:
+            user_agent: The User-Agent string to analyze
+            ip_address: The IP address to check against known AI bot ranges
+            db: Database session for IP range queries
+            
+        Returns:
+            Tuple of (bot_category, bot_name, detection_method)
+            detection_method can be: 'user_agent', 'ip_address', 'both', or 'none'
+        """
+        user_agent_category, user_agent_pattern = cls.detect_ai_bot(user_agent)
+        ip_is_bot, ip_bot_name, ip_source_type = IPRangeService(db).is_ip_in_ai_bot_range(ip_address)
+        
+        detected_bot_name = ''
+        detection_method = 'none'
+        final_category = None
+        
+        # Check User-Agent detection first
+        if user_agent_category:
+            final_category = user_agent_category
+            detected_bot_name = cls.get_bot_name(user_agent)
+            detection_method = 'user_agent'
+        
+        # Check IP-based detection
+        if ip_is_bot and ip_bot_name:
+            if detection_method == 'user_agent':
+                # Both methods detected a bot
+                detection_method = 'both'
+                # Prioritize User-Agent detection for bot name if it exists
+                if not final_category:
+                    final_category = 'IP_Detected_Bot'
+            else:
+                # Only IP detection found a bot
+                detection_method = 'ip_address'
+                final_category = 'IP_Detected_Bot'
+                detected_bot_name = f"IP_{ip_bot_name}"
+        
+        return final_category, detected_bot_name, detection_method
+    
+    @classmethod
+    def is_ai_bot_comprehensive(cls, user_agent: str, ip_address: str, db: Session) -> bool:
+        """
+        Comprehensive check if visitor is an AI bot.
+        
+        Args:
+            user_agent: The User-Agent string to analyze
+            ip_address: The IP address to check against known AI bot ranges
+            db: Database session for IP range queries
+            
+        Returns:
+            True if AI bot detected by either method, False otherwise
+        """
+        bot_category, _, _ = cls.detect_ai_bot_comprehensive(user_agent, ip_address, db)
+        return bot_category is not None
