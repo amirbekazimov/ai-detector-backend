@@ -36,7 +36,7 @@ class DetectionService:
         return [DetectionSchema.from_orm(detection) for detection in detections]
     
     def get_detection(self, detection_id: int) -> Optional[DetectionSchema]:
-        """Get detection by ID."""
+        """Get detection by ID and return it"""
         detection = self.db.query(DetectionModel).filter(DetectionModel.id == detection_id).first()
         if detection:
             return DetectionSchema.from_orm(detection)
