@@ -7,6 +7,11 @@ from typing import Optional
 from app.api.deps import get_db
 from app.services.site_service import SiteService
 from app.core.config import settings
+from app.api.v1.endpoints.simple_code_generator import (
+    generate_python_simple,
+    generate_nodejs_simple,
+    generate_php_simple
+)
 
 router = APIRouter()
 
@@ -37,37 +42,27 @@ async def get_server_code(
         )
     
     # API endpoint for detection
-    detection_url = f"{settings.API_URL}/api/v1/server-detection"
+    api_url = settings.API_URL
     
     if language.lower() == "php":
-        code = generate_php_code(site.site_id, detection_url)
+        code = generate_php_simple(site.site_id, api_url)
         content_type = "text/php"
         filename = f"ai_detector_{site.site_id}.php"
         
-    elif language.lower() == "nginx":
-        code = generate_nginx_code(site.site_id, detection_url)
-        content_type = "text/nginx"
-        filename = f"ai_detector_{site.site_id}.conf"
-        
-    elif language.lower() == "apache":
-        code = generate_apache_code(site.site_id, detection_url)
-        content_type = "text/apache"
-        filename = f"ai_detector_{site.site_id}.htaccess"
-        
-    elif language.lower() == "nodejs":
-        code = generate_nodejs_code(site.site_id, detection_url)
-        content_type = "text/javascript"
-        filename = f"ai_detector_{site.site_id}.js"
-        
     elif language.lower() == "python":
-        code = generate_python_code(site.site_id, detection_url)
+        code = generate_python_simple(site.site_id, api_url)
         content_type = "text/python"
         filename = f"ai_detector_{site.site_id}.py"
+        
+    elif language.lower() == "nodejs":
+        code = generate_nodejs_simple(site.site_id, api_url)
+        content_type = "text/javascript"
+        filename = f"ai_detector_{site.site_id}.js"
         
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Supported languages: php, nginx, apache, nodejs, python"
+            detail="Unsupported language. Supported: php, python, nodejs"
         )
     
     return {
@@ -77,7 +72,7 @@ async def get_server_code(
         "language": language,
         "filename": filename,
         "server_code": code,
-        "detection_url": detection_url,
+        "api_url": api_url,
         "instructions": get_server_instructions(language)
     }
 
@@ -609,34 +604,22 @@ def get_server_instructions(language: str) -> dict:
     """Get instructions for server integration."""
     instructions = {
         "php": {
-            "step1": "Upload the PHP file to your server",
-            "step2": "Include it at the top of your PHP pages: include_once 'ai_detector_{site_id}.php';",
+            "step1": "Copy the PHP code to your server",
+            "step2": "Call trackAIBot() at the start of your PHP scripts",
             "step3": "Or add to your auto_prepend_file in php.ini",
             "step4": "Check server logs for AI bot detection messages"
         },
-        "nginx": {
-            "step1": "Ensure your Nginx has lua_http_module enabled",
-            "step2": "Add this configuration to your server block",
-            "step3": "Reload Nginx configuration: nginx -s reload",
-            "step4": "Monitor Nginx error logs for detection activity"
-        },
-        "apache": {
-            "step1": "Place in your .htaccess file",
-            "step2": "Upload the PHP detection script to your server",
-            "step3": "Include the script in your PHP pages",
-            "step4": "Enable mod_rewrite and mod_headers if not already enabled"
-        },
         "nodejs": {
-            "step1": "Install required dependencies: npm install",
-            "step2": "Require the middleware in your Express app",
-            "step3": "Add detector.middleware() before your routes",
+            "step1": "Copy the JavaScript code to your project",
+            "step2": "Add the middleware to your Express app",
+            "step3": "Call trackAIBot(req) before your routes",
             "step4": "Monitor console logs for AI bot detection"
         },
         "python": {
-            "step1": "Install dependencies: pip install requests",
-            "step2": "Choose integration method: Django middleware, Flask before_request, or FastAPI middleware",
-            "step3": "Import and configure AIBotDetector for your framework",
-            "step4": "Monitor console logs for AI bot detection messages"
+            "step1": "Copy the Python code to your project",
+            "step2": "Add the middleware to your FastAPI/Django/Flask app",
+            "step3": "Call track_ai_bot(request) in your middleware",
+            "step4": "Monitor console logs for AI bot detection"
         }
     }
     
