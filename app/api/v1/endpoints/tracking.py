@@ -427,3 +427,123 @@ async def receive_batch_tracking_events(
                 "Content-Type": "application/json"
             }
         )
+
+
+@router.post("/detect")
+async def detect_ai_bot(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Simple AI Bot Detection API - DarkVisitors style
+    
+    Usage:
+        async with aiohttp.ClientSession() as session:
+            await session.post(
+                "https://back.aidetector.velmi.ai/api/v1/tracking/detect",
+                headers={
+                    "Authorization": f"Bearer {YOUR_SITE_ID}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "request_path": request.url.path,
+                    "request_method": request.method,
+                    "request_headers": dict(request.headers),
+                }
+            )
+    """
+    try:
+        # Get site_id from Authorization header
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Authorization header. Use: Bearer YOUR_SITE_ID"
+            )
+        
+        site_id = auth_header.replace("Bearer ", "").strip()
+        
+        # Verify site exists
+        site_service = SiteService(db)
+        site = site_service.get_site_by_site_id(site_id)
+        
+        if not site:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Site not found"
+            )
+        
+        # Get request data
+        try:
+            data = await request.json()
+        except:
+            data = {}
+        
+        # Get client IP
+        client_ip = request.client.host if request.client else "unknown"
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            client_ip = forwarded_for.split(",")[0].strip()
+        
+        # Get User-Agent from request_headers or direct header
+        user_agent = ""
+        if "request_headers" in data:
+            if isinstance(data["request_headers"], dict):
+                user_agent = data["request_headers"].get("user-agent", "")
+            else:
+                user_agent = str(data["request_headers"])
+        
+        if not user_agent:
+            user_agent = request.headers.get("user-agent", "")
+        
+        # Detect AI bot
+        from app.services.ai_detection_service import AIBotDetectionService
+        bot_category, bot_name, detection_method = AIBotDetectionService.detect_ai_bot_comprehensive(
+            user_agent=user_agent,
+            ip_address=client_ip,
+            db=db
+        )
+        
+        is_ai_bot = bot_category is not None
+        
+        # Log detection result
+        if is_ai_bot:
+            print(f"🤖 AI Bot detected via API: {bot_name} ({detection_method}) - IP: {client_ip}")
+        else:
+            print(f"👤 Human visitor detected via API - IP: {client_ip}")
+        
+        # Create tracking event
+        tracking_service = TrackingEventService(db)
+        
+        # Get referrer safely
+        referrer = ""
+        if "request_headers" in data and isinstance(data["request_headers"], dict):
+            referrer = data["request_headers"].get("referer", "")
+        
+        event_data = {
+            "site_id": site_id,
+            "event_type": "api_detection",
+            "url": data.get("request_path", "/"),
+            "user_agent": user_agent,
+            "referrer": referrer,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        tracking_service.create_tracking_event(event_data, ip_address=client_ip)
+        
+        # Return detection result
+        return {
+            "is_ai_bot": is_ai_bot,
+            "bot_name": bot_name or "None",
+            "detection_method": detection_method,
+            "confidence": 1.0 if is_ai_bot else 0.0
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Detection API error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Detection failed: {str(e)}"
+        )
