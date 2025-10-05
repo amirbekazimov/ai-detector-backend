@@ -17,6 +17,7 @@ class AIBotDetectionService:
             r'ChatGPT-User',
             r'OpenAI',
             r'ChatGPT',
+            r'got \(https://github\.com/sindresorhus/got\)',
         ],
         'DeepSeek': [
             r'DeepSeek',
