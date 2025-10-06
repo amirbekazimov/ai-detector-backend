@@ -16,5 +16,7 @@ email-validator==2.0.0
 python-multipart==0.0.6
 requests==2.31.0
 schedule==1.2.0
+# Database migrations
+alembic==1.13.1
 # Additional production dependencies
 gunicorn==21.2.0

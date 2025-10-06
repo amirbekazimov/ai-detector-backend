@@ -479,8 +479,18 @@ async def detect_ai_bot(
         except:
             data = {}
         
-        # Get client IP
+        # Get client IP from request_headers or direct headers
         client_ip = request.client.host if request.client else "unknown"
+        
+        # First try to get IP from request_headers in JSON data
+        if "request_headers" in data and isinstance(data["request_headers"], dict):
+            forwarded_for = data["request_headers"].get("X-Forwarded-For", "")
+            if forwarded_for:
+                client_ip = forwarded_for.split(",")[0].strip()
+            elif data["request_headers"].get("X-Real-IP"):
+                client_ip = data["request_headers"].get("X-Real-IP")
+        
+        # Fallback to direct headers
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
             client_ip = forwarded_for.split(",")[0].strip()

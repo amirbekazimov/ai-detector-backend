@@ -10,40 +10,30 @@ import requests
 def track_ai_bot(request):
     \"\"\"Detect AI bots in the background.\"\"\"
     try:
-        print(f"🔍 Tracking request: {{request.method}} {{request.path}}")
-        print(f"🔍 User-Agent: {{request.headers.get('User-Agent', 'None')}}")
+        json_to_send = {{
+            "request_path": str(request.path),
+            "request_method": request.method,
+            "request_headers": dict(request.headers),
+        }}
         
-        # Get real IP address
-        real_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-        if ',' in real_ip:
-            real_ip = real_ip.split(',')[0].strip()
-        
-        print(f"🔍 Real IP: {{real_ip}}")
-        
-        response = requests.post(
+        requests.post(
             "{api_url}/api/v1/tracking/detect",
             headers={{
-                "Authorization": f"Bearer {site_id}",
+                "Authorization": "Bearer {site_id}",
                 "Content-Type": "application/json",
-                "X-Forwarded-For": real_ip,
             }},
-            json={{
-                "request_path": str(request.path),
-                "request_method": request.method,
-                "request_headers": dict(request.headers),
-            }},
+            json=json_to_send,
             timeout=2
         )
-        print(f"✅ API Response: {{response.status_code}}")
-    except Exception as e:
-        print(f"❌ Tracking error: {{str(e)}}")
-        pass  # Silent fail - don't break your app
+    except Exception:
+        pass
 
 
 # Usage in FastAPI:
 # @app.middleware("http")
 # async def detect_bots(request: Request, call_next):
-#     track_ai_bot(request)  # Works in sync context too
+#     import threading
+#     threading.Thread(target=track_ai_bot, args=(request,)).start()
 #     return await call_next(request)
 
 # Usage in Flask:
@@ -54,7 +44,8 @@ def track_ai_bot(request):
 # Usage in Django:
 # Add to middleware.py:
 # def process_request(self, request):
-#     track_ai_bot(request)
+#     import threading
+#     threading.Thread(target=track_ai_bot, args=(request,)).start()
 #     return None
 """
 

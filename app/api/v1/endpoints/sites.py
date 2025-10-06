@@ -104,11 +104,11 @@ async def get_tracking_code(
         "script_url": f"{settings.API_URL}/api/v1/tracking/{site.site_id}.js",
         "server_page_url": f"{settings.API_URL}/api/v1/client-page?site_id={site.site_id}",
         "instructions": {
-            "step1": "Copy the tracking code above and paste it before the closing </body> tag on your website",
-            "step2": "The script will automatically detect AI bots visiting your site",
-            "step3": "For testing with ChatGPT, use the server page URL",
-            "step4": "View detection results in your dashboard",
-            "note": "Server page URL works for AI bots that don't execute JavaScript"
+            "step1": "Скопируйте код отслеживания выше и вставьте его перед закрывающим тегом </body> на вашем сайте",
+            "step2": "Скрипт автоматически будет определять AI ботов, посещающих ваш сайт",
+            "step3": "Для тестирования с ChatGPT используйте URL серверной страницы",
+            "step4": "Просматривайте результаты детекции в вашей панели управления",
+            "note": "URL серверной страницы работает для AI ботов, которые не выполняют JavaScript"
         }
     }
 
