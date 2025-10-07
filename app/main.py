@@ -6,10 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.endpoints import health, detections, auth, sites, tracking, dashboard, ip_ranges, public, server_code, server_detection
 from app.core.config import settings
 from app.services.scheduler_service import scheduler_service
-
-# for new db tables auto create tables if they don't exist (will work on Supabase)
-from app.db.session import engine
-from app.db.base import Base
+from app.utils.migrations import run_migrations
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -18,8 +15,9 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# auto create tables if they don't exist (will work on Supabase)
-Base.metadata.create_all(bind=engine)
+# Run migrations on startup
+print("🔄 Running database migrations...")
+run_migrations()
 
 app.add_middleware(
     CORSMiddleware,

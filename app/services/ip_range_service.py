@@ -44,6 +44,42 @@ class IPRangeService:
     
     def __init__(self, db: Session):
         self.db = db
+        self._load_ip_ranges_from_db()
+    
+    def _load_ip_ranges_from_db(self):
+        """Load IP ranges from database into memory."""
+        try:
+            print("🔄 Loading IP ranges from database...")
+            
+            # Получаем все активные IP адреса из базы данных
+            ip_ranges = self.db.query(AIBotIPRange).filter(AIBotIPRange.is_active == True).all()
+            
+            # Очищаем память
+            for category in self._ai_bot_ips:
+                self._ai_bot_ips[category].clear()
+            
+            # Загружаем IP адреса в память
+            loaded_count = 0
+            for ip_range in ip_ranges:
+                # Определяем категорию бота
+                storage_category = None
+                if 'chatgpt' in ip_range.bot_name.lower() or 'user' in ip_range.bot_name.lower():
+                    storage_category = 'ChatGPT User'
+                elif 'gptbot' in ip_range.bot_name.lower():
+                    storage_category = 'GPTBot'
+                elif 'search' in ip_range.bot_name.lower():
+                    storage_category = 'SearchBot'
+                else:
+                    storage_category = 'Other AI'
+                
+                if storage_category in self._ai_bot_ips:
+                    self._ai_bot_ips[storage_category].add(ip_range.ip_address)
+                    loaded_count += 1
+            
+            print(f"✅ Loaded {loaded_count} IP addresses from database")
+            
+        except Exception as e:
+            print(f"❌ Error loading IP ranges from database: {e}")
     
     def is_ip_in_ai_bot_range(self, ip_address: str) -> Tuple[bool, Optional[str], Optional[str]]:
         """
@@ -90,7 +126,7 @@ class IPRangeService:
     
     def add_ip_address(self, bot_name: str, ip_address: str, source_type: str = 'direct_ip', 
                       source_url: str = None) -> bool:
-        """Add an IP address to temporary storage."""
+        """Add an IP address to both memory and database storage."""
         
         try:
             # Определяем категорию бота для нашего хранилища
@@ -104,17 +140,44 @@ class IPRangeService:
             else:
                 storage_category = 'Other AI'
             
-            # Добавляем в память
-            if self._is_valid_ip(ip_address):
-                self._ai_bot_ips[storage_category].add(ip_address)
-                print(f"✅ Добавлен IP {ip_address} в категорию {storage_category}")
-                return True
-            else:
+            # Проверяем валидность IP
+            if not self._is_valid_ip(ip_address):
                 print(f"❌ Неверный IP адрес: {ip_address}")
                 return False
+            
+            # Проверяем, не существует ли уже этот IP в базе данных
+            existing_ip = self.db.query(AIBotIPRange).filter(
+                AIBotIPRange.bot_name == bot_name,
+                AIBotIPRange.ip_address == ip_address
+            ).first()
+            
+            if existing_ip:
+                print(f"⚠️ IP {ip_address} уже существует в базе данных")
+                # Добавляем в память для консистентности
+                self._ai_bot_ips[storage_category].add(ip_address)
+                return True
+            
+            # Создаем новую запись в базе данных
+            new_ip_range = AIBotIPRange(
+                bot_name=bot_name,
+                ip_address=ip_address,
+                source_type=source_type,
+                source_url=source_url,
+                is_active=True
+            )
+            
+            self.db.add(new_ip_range)
+            self.db.commit()
+            self.db.refresh(new_ip_range)
+            
+            # Добавляем в память
+            self._ai_bot_ips[storage_category].add(ip_address)
+            print(f"✅ Добавлен IP {ip_address} в категорию {storage_category} (сохранено в БД)")
+            return True
                 
         except Exception as e:
             print(f"❌ Ошибка добавления IP {ip_address}: {e}")
+            self.db.rollback()
             return False
     
     async def update_ip_ranges_from_source(self, source_name: str, source_url: str, 
@@ -270,7 +333,7 @@ class IPRangeService:
             'inactive_ip_ranges': 0,
             'bot_statistics': bot_stats,
             'sample_ips': sample_ips,  # Для отладки
-            'storage_type': 'memory',
+            'storage_type': 'database_and_memory',
             'last_updates': {}
         }
     
@@ -334,15 +397,29 @@ class IPRangeService:
             # Look for IP addresses in the "IP addresses:" section
             import re
             
-            # Extract IP addresses using regex pattern
-            ip_pattern = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
-            found_ips = re.findall(ip_pattern, response.text)
+            # Find the section from 'IP addresses:' to 'Countries:'
+            start_marker = 'IP addresses:'
+            end_marker = 'Countries:'
             
-            # Filter out some common non-IP patterns and validate
-            chatgpt_ips = []
-            for ip in found_ips:
-                if self._is_valid_ip(ip) and not any(x in ip for x in ['0.0.0.0', '127.0.0', '255.255.255']):
-                    chatgpt_ips.append(ip)
+            start_pos = response.text.find(start_marker)
+            end_pos = response.text.find(end_marker)
+            
+            if start_pos != -1 and end_pos != -1:
+                ip_section_text = response.text[start_pos:end_pos]
+                print(f"📄 Found IP addresses section from position {start_pos} to {end_pos}")
+                
+                # Extract IP addresses only from this section
+                ip_pattern = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
+                found_ips = re.findall(ip_pattern, ip_section_text)
+                
+                # Filter out some common non-IP patterns and validate
+                chatgpt_ips = []
+                for ip in found_ips:
+                    if self._is_valid_ip(ip) and not any(x in ip for x in ['0.0.0.0', '127.0.0', '255.255.255']):
+                        chatgpt_ips.append(ip)
+            else:
+                print("❌ Could not find 'IP addresses:' section")
+                chatgpt_ips = []
             
             print(f"🔍 Found {len(chatgpt_ips)} ChatGPT IP addresses from crawlers-info.de")
             
@@ -356,18 +433,13 @@ class IPRangeService:
             changes_count = 0
             
             # Добавляем новые IP в базу данных
-            existing_ips = {ip.ip_address for ip in self.db.query(AIBotIPRange.ip_address).filter(
-                AIBotIPRange.bot_name == bot_name
-            ).all()}
-            
             for ip in chatgpt_ips:
-                if ip not in existing_ips and self._is_valid_ip(ip):
-                    self.add_ip_address(
-                        bot_name=bot_name,
-                        ip_address=ip,
-                        source_type='crawlers_info',
-                        source_url='https://crawlers-info.de/bots_info/973bdf5bbc8784a0b8204b9ca4aa5aae'
-                    )
+                if self.add_ip_address(
+                    bot_name=bot_name,
+                    ip_address=ip,
+                    source_type='crawlers_info',
+                    source_url='https://crawlers-info.de/bots_info/973bdf5bbc8784a0b8204b9ca4aa5aae'
+                ):
                     changes_count += 1
             
             # Логируем обновление

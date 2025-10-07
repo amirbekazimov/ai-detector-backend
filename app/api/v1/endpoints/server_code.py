@@ -604,22 +604,22 @@ def get_server_instructions(language: str) -> dict:
     """Get instructions for server integration."""
     instructions = {
         "php": {
-            "step1": "Copy the PHP code to your server",
-            "step2": "Call trackAIBot() at the start of your PHP scripts",
-            "step3": "Or add to your auto_prepend_file in php.ini",
-            "step4": "Check server logs for AI bot detection messages"
+            "step1": "Скопируйте PHP код на ваш сервер",
+            "step2": "Вызовите trackAIBot() в начале ваших PHP скриптов",
+            "step3": "Или добавьте в auto_prepend_file в php.ini",
+            "step4": "Проверяйте логи сервера на сообщения о детекции AI ботов"
         },
         "nodejs": {
-            "step1": "Copy the JavaScript code to your project",
-            "step2": "Add the middleware to your Express app",
-            "step3": "Call trackAIBot(req) before your routes",
-            "step4": "Monitor console logs for AI bot detection"
+            "step1": "Скопируйте JavaScript код в ваш проект",
+            "step2": "Добавьте middleware в ваше Express приложение",
+            "step3": "Вызовите trackAIBot(req) перед вашими маршрутами",
+            "step4": "Следите за логами консоли для детекции AI ботов"
         },
         "python": {
-            "step1": "Copy the Python code to your project",
-            "step2": "Add the middleware to your FastAPI/Django/Flask app",
-            "step3": "Call track_ai_bot(request) in your middleware",
-            "step4": "Monitor console logs for AI bot detection"
+            "step1": "Скопируйте Python код в ваш проект",
+            "step2": "Добавьте middleware в ваше FastAPI/Django/Flask приложение",
+            "step3": "Вызовите track_ai_bot(request) в вашем middleware",
+            "step4": "Следите за логами консоли для детекции AI ботов"
         }
     }
     
