@@ -484,11 +484,16 @@ async def detect_ai_bot(
         
         # First try to get IP from request_headers in JSON data
         if "request_headers" in data and isinstance(data["request_headers"], dict):
-            forwarded_for = data["request_headers"].get("X-Forwarded-For", "")
+            # Try both lowercase and capitalized versions
+            forwarded_for = (data["request_headers"].get("X-Forwarded-For", "") or 
+                           data["request_headers"].get("x-forwarded-for", ""))
             if forwarded_for:
                 client_ip = forwarded_for.split(",")[0].strip()
-            elif data["request_headers"].get("X-Real-IP"):
-                client_ip = data["request_headers"].get("X-Real-IP")
+            else:
+                real_ip = (data["request_headers"].get("X-Real-IP", "") or 
+                          data["request_headers"].get("x-real-ip", ""))
+                if real_ip:
+                    client_ip = real_ip
         
         # Fallback to direct headers
         forwarded_for = request.headers.get("X-Forwarded-For")
@@ -499,7 +504,9 @@ async def detect_ai_bot(
         user_agent = ""
         if "request_headers" in data:
             if isinstance(data["request_headers"], dict):
-                user_agent = data["request_headers"].get("user-agent", "")
+                # Try both lowercase and capitalized versions
+                user_agent = (data["request_headers"].get("user-agent", "") or 
+                            data["request_headers"].get("User-Agent", ""))
             else:
                 user_agent = str(data["request_headers"])
         
@@ -508,6 +515,14 @@ async def detect_ai_bot(
         
         # Detect AI bot
         from app.services.ai_detection_service import AIBotDetectionService
+        
+        print(f"🔍 AI Detection API called:")
+        print(f"  📍 Site ID: {site_id}")
+        print(f"  🌐 User-Agent: {user_agent[:100]}...")
+        print(f"  📍 IP: {client_ip}")
+        print(f"  🛣️ Path: {data.get('request_path', '/')}")
+        print(f"  🔍 Searching IP {client_ip} in AI bot database...")
+        
         bot_category, bot_name, detection_method = AIBotDetectionService.detect_ai_bot_comprehensive(
             user_agent=user_agent,
             ip_address=client_ip,
@@ -516,11 +531,17 @@ async def detect_ai_bot(
         
         is_ai_bot = bot_category is not None
         
-        # Log detection result
+        # Log detailed detection result
         if is_ai_bot:
-            print(f"🤖 AI Bot detected via API: {bot_name} ({detection_method}) - IP: {client_ip}")
+            print(f"🚨 AI BOT DETECTED!")
+            print(f"  🤖 Bot Name: {bot_name}")
+            print(f"  🎯 Detection Method: {detection_method}")
+            print(f"  📍 IP: {client_ip}")
+            print(f"  ✅ IP {client_ip} FOUND in AI bot database")
         else:
-            print(f"👤 Human visitor detected via API - IP: {client_ip}")
+            print(f"👤 Human visitor detected")
+            print(f"  📍 IP: {client_ip}")
+            print(f"  ❌ IP {client_ip} NOT FOUND in AI bot database")
         
         # Create tracking event
         tracking_service = TrackingEventService(db)
