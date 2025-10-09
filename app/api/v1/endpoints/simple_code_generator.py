@@ -10,10 +10,18 @@ import requests
 def track_ai_bot(request):
     \"\"\"Detect AI bots in the background.\"\"\"
     try:
+        # Extract real IP from headers
+        real_ip = request.remote_addr
+        if request.headers.get('X-Forwarded-For'):
+            real_ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
+        elif request.headers.get('X-Real-IP'):
+            real_ip = request.headers.get('X-Real-IP')
+        
         json_to_send = {{
             "request_path": str(request.path),
             "request_method": request.method,
             "request_headers": dict(request.headers),
+            "client_ip": real_ip,
         }}
         
         requests.post(
@@ -21,6 +29,7 @@ def track_ai_bot(request):
             headers={{
                 "Authorization": "Bearer {site_id}",
                 "Content-Type": "application/json",
+                "X-Forwarded-For": real_ip,
             }},
             json=json_to_send,
             timeout=2
@@ -59,17 +68,27 @@ const axios = require('axios');
 
 async function trackAIBot(req) {{
     try {{
+        // Extract real IP from headers
+        let realIp = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+        if (req.headers['x-forwarded-for']) {{
+            realIp = req.headers['x-forwarded-for'].split(',')[0].trim();
+        }} else if (req.headers['x-real-ip']) {{
+            realIp = req.headers['x-real-ip'];
+        }}
+        
         await axios.post(
             '{api_url}/api/v1/tracking/detect',
             {{
                 request_path: req.path,
                 request_method: req.method,
                 request_headers: req.headers,
+                client_ip: realIp,
             }},
             {{
                 headers: {{
                     'Authorization': `Bearer {site_id}`,
                     'Content-Type': 'application/json',
+                    'X-Forwarded-For': realIp,  // 🔥 дублируем в заголовке
                 }},
             }}
         );
@@ -93,10 +112,19 @@ def generate_php_simple(site_id: str, api_url: str) -> str:
 // Add this to your PHP app
 
 function trackAIBot() {{
+    // Extract real IP from headers
+    $realIp = $_SERVER['REMOTE_ADDR'];
+    if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {{
+        $realIp = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+    }} elseif (isset($_SERVER['HTTP_X_REAL_IP'])) {{
+        $realIp = $_SERVER['HTTP_X_REAL_IP'];
+    }}
+    
     $data = json_encode([
         'request_path' => $_SERVER['REQUEST_URI'],
         'request_method' => $_SERVER['REQUEST_METHOD'],
         'request_headers' => getallheaders(),
+        'client_ip' => $realIp,
     ]);
     
     $options = [
@@ -105,6 +133,7 @@ function trackAIBot() {{
             'header' => [
                 'Authorization: Bearer {site_id}',
                 'Content-Type: application/json',
+                'X-Forwarded-For: ' . $realIp,  // 🔥 дублируем в заголовке
             ],
             'content' => $data,
             'ignore_errors' => true,
@@ -132,6 +161,7 @@ import (
     "bytes"
     "encoding/json"
     "net/http"
+    "strings"
 )
 
 func trackAIBot(r *http.Request) {{
@@ -142,10 +172,19 @@ func trackAIBot(r *http.Request) {{
             }}
         }}()
         
+        // Extract real IP from headers
+        realIp := r.RemoteAddr
+        if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {{
+            realIp = strings.TrimSpace(strings.Split(forwardedFor, ",")[0])
+        }} else if realIpHeader := r.Header.Get("X-Real-IP"); realIpHeader != "" {{
+            realIp = realIpHeader
+        }}
+        
         data := map[string]interface{{}}{{
             "request_path":    r.URL.Path,
             "request_method":  r.Method,
             "request_headers": r.Header,
+            "client_ip":       realIp,
         }}
         
         jsonData, _ := json.Marshal(data)
@@ -153,6 +192,7 @@ func trackAIBot(r *http.Request) {{
         req, _ := http.NewRequest("POST", "{api_url}/api/v1/tracking/detect", bytes.NewBuffer(jsonData))
         req.Header.Set("Authorization", "Bearer {site_id}")
         req.Header.Set("Content-Type", "application/json")
+        req.Header.Set("X-Forwarded-For", realIp)  // 🔥 дублируем в заголовке
         
         client := &http.Client{{}}
         client.Do(req)
@@ -180,6 +220,14 @@ require 'json'
 def track_ai_bot(request)
   Thread.new do
     begin
+      # Extract real IP from headers
+      real_ip = request.ip || request.remote_ip
+      if request.env['HTTP_X_FORWARDED_FOR']
+        real_ip = request.env['HTTP_X_FORWARDED_FOR'].split(',').first.strip
+      elsif request.env['HTTP_X_REAL_IP']
+        real_ip = request.env['HTTP_X_REAL_IP']
+      end
+      
       uri = URI('{api_url}/api/v1/tracking/detect')
       
       http = Net::HTTP.new(uri.host, uri.port)
@@ -188,10 +236,12 @@ def track_ai_bot(request)
       req = Net::HTTP::Post.new(uri.path)
       req['Authorization'] = 'Bearer {site_id}'
       req['Content-Type'] = 'application/json'
+      req['X-Forwarded-For'] = real_ip
       req.body = {{
         request_path: request.path,
         request_method: request.request_method,
-        request_headers: request.headers.to_h
+        request_headers: request.headers.to_h,
+        client_ip: real_ip
       }}.to_json
       
       http.request(req)
