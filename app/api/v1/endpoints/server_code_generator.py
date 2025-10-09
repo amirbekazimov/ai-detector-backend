@@ -42,12 +42,10 @@ class AIBotDetector {
         console.log('Is AI Bot?', this.isAIBot(userAgent));
 
         const detectionData = {
-            site_id: this.siteId,
-            ip_address: clientIp,
-            user_agent: userAgent,
-            url: req.originalUrl,
-            referrer: referrer,
-            timestamp: new Date().toISOString()
+            request_path: req.originalUrl,
+            request_method: req.method,
+            request_headers: req.headers,
+            client_ip: clientIp
         };
         
         console.log('Sending detection data:', JSON.stringify(detectionData, null, 2));
@@ -68,13 +66,15 @@ class AIBotDetector {
      */
     sendDetectionRequest(data) {
         console.log('🚀 Sending request to:', this.detectionUrl);
-        const postData = JSON.stringify(dataS);
+        const postData = JSON.stringify(data);
         
         const options = {
             method: 'POST',
             headers: {
+                'Authorization': 'Bearer """ + site_id + """',
                 'Content-Type': 'application/json',
                 'Content-Length': Buffer.byteLength(postData),
+                'X-Forwarded-For': data.client_ip,  // 🔥 дублируем в заголовке
                 'User-Agent': 'NodeJS-Server/""" + site_id + """'
             },
             timeout: 5000
@@ -182,13 +182,10 @@ class AIBotDetector:
             
             # Prepare detection payload
             payload = {
-                'site_id': self.site_id,
-                'site_id': self.site_id,
-                'ip_address': request_data.get('ip_address', ''),
-                'user_agent': request_data.get('user_agent', ''),
-                'url': request_data.get('url', ''),
-                'referrer': request_data.get('referrer', ''),
-                'timestamp': datetime.now().isoformat()
+                'request_path': request_data.get('url', '/'),
+                'request_method': request_data.get('method', 'GET'),
+                'request_headers': request_data.get('headers', {}),
+                'client_ip': request_data.get('ip_address', ''),
             }
             
             print(f"Sending detection data: {json.dumps(payload, indent=2)}")
@@ -230,6 +227,10 @@ class AIBotDetector:
             response = self.session.post(
                 self.detection_url,
                 json=payload,
+                headers={
+                    'Authorization': f'Bearer """ + site_id + """',
+                    'X-Forwarded-For': payload.get('client_ip', ''),  
+                },
                 timeout=5,
                 stream=False
             )
