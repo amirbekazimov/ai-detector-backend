@@ -1,7 +1,7 @@
 """JavaScript snippet generation and tracking endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.responses import PlainTextResponse, Response
+from fastapi.responses import PlainTextResponse, Response, HTMLResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 import json
@@ -578,3 +578,79 @@ async def detect_ai_bot(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Detection failed: {str(e)}"
         )
+
+
+@router.get("/test-chatgpt", response_class=HTMLResponse)
+async def test_chatgpt_page():
+    """HTML page for ChatGPT testing - automatically runs AI detection."""
+    
+    html_content = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Detector Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f0f0f0; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .status { padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .loading { background: #fff3cd; color: #856404; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI Detector Test</h1>
+        <div id="status" class="status loading">🔄 Running AI detection...</div>
+        <div id="results"></div>
+    </div>
+    
+    <script>
+        async function runDetection() {
+            try {
+                const response = await fetch('/api/v1/tracking/detect', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer site_c46e72bc1f84',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        request_path: '/test-chatgpt',
+                        request_method: 'GET',
+                        request_headers: {
+                            'User-Agent': navigator.userAgent
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.is_ai_bot) {
+                    document.getElementById('status').innerHTML = '🚨 AI BOT DETECTED!';
+                    document.getElementById('status').className = 'status success';
+                } else {
+                    document.getElementById('status').innerHTML = '👤 Human visitor detected';
+                    document.getElementById('status').className = 'status success';
+                }
+                
+                document.getElementById('results').innerHTML = `
+                    <h3>Results:</h3>
+                    <p><strong>Bot Name:</strong> ${result.bot_name || 'None'}</p>
+                    <p><strong>Method:</strong> ${result.detection_method || 'Unknown'}</p>
+                    <p><strong>Confidence:</strong> ${(result.confidence * 100).toFixed(1)}%</p>
+                `;
+                
+            } catch (error) {
+                document.getElementById('status').innerHTML = '❌ Detection failed: ' + error.message;
+                document.getElementById('status').className = 'status error';
+            }
+        }
+        
+        // Auto-run detection on page load
+        window.addEventListener('load', runDetection);
+    </script>
+</body>
+</html>
+    """
+    
+    return HTMLResponse(content=html_content)
