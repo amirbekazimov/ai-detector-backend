@@ -203,7 +203,7 @@ class IPRangeService:
             response = requests.get(source_url, timeout=30)
             response.raise_for_status()
             
-            ip_lines = [line.strip() for line in response.text.strip().split('\n ') if line.strip()]
+            ip_lines = [line.strip() for line in response.text.strip().split('\n') if line.strip()]
             
             # Get existing IPs for this bot
             existing_ips = {ip.ip_address for ip in self.db.query(AIBotIPRange.ip_address).filter(
