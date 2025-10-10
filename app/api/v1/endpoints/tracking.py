@@ -581,74 +581,66 @@ async def detect_ai_bot(
 
 
 @router.get("/test-chatgpt", response_class=HTMLResponse)
-async def test_chatgpt_page():
+async def test_chatgpt_page(request: Request, db: Session = Depends(get_db)):
     """HTML page for ChatGPT testing - automatically runs AI detection."""
     
-    html_content = """
+    # Run AI detection on server side
+    from app.services.ai_detection_service import AIBotDetectionService
+    
+    # Get client IP and User-Agent
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "")
+    
+    # Detect AI bot
+    bot_category, bot_name, detection_method = AIBotDetectionService.detect_ai_bot_comprehensive(
+        user_agent=user_agent,
+        ip_address=client_ip,
+        db=db
+    )
+    
+    is_ai_bot = bot_category is not None
+    
+    # Log detection result
+    if is_ai_bot:
+        print(f"🚨 AI BOT DETECTED!")
+        print(f"  🤖 Bot Name: {bot_name}")
+        print(f"  🎯 Detection Method: {detection_method}")
+        print(f"  📍 IP: {client_ip}")
+        print(f"  ✅ IP {client_ip} FOUND in AI bot database")
+    else:
+        print(f"👤 Human visitor detected")
+        print(f"  📍 IP: {client_ip}")
+        print(f"  ❌ IP {client_ip} NOT FOUND in AI bot database")
+    
+    # Create HTML with detection result
+    status_text = "🚨 AI BOT DETECTED!" if is_ai_bot else "👤 Human visitor detected"
+    status_class = "success" if is_ai_bot else "info"
+    
+    html_content = f"""
 <!DOCTYPE html>
 <html>
 <head>
     <title>AI Detector Test</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background: #f0f0f0; }
-        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .status { padding: 15px; margin: 10px 0; border-radius: 5px; }
-        .loading { background: #fff3cd; color: #856404; }
-        .success { background: #d4edda; color: #155724; }
-        .error { background: #f8d7da; color: #721c24; }
+        body {{ font-family: Arial, sans-serif; margin: 40px; background: #f0f0f0; }}
+        .container {{ background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        .status {{ padding: 15px; margin: 10px 0; border-radius: 5px; }}
+        .success {{ background: #d4edda; color: #155724; }}
+        .info {{ background: #d1ecf1; color: #0c5460; }}
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🤖 AI Detector Test</h1>
-        <div id="status" class="status loading">🔄 Running AI detection...</div>
-        <div id="results"></div>
+        <div class="status {status_class}">{status_text}</div>
+        <div>
+            <h3>Detection Results:</h3>
+            <p><strong>Bot Name:</strong> {bot_name or 'None'}</p>
+            <p><strong>Method:</strong> {detection_method or 'Unknown'}</p>
+            <p><strong>IP Address:</strong> {client_ip}</p>
+            <p><strong>User Agent:</strong> {user_agent[:100]}...</p>
+        </div>
     </div>
-    
-    <script>
-        async function runDetection() {
-            try {
-                const response = await fetch('/api/v1/tracking/detect', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer site_c46e72bc1f84',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        request_path: '/test-chatgpt',
-                        request_method: 'GET',
-                        request_headers: {
-                            'User-Agent': navigator.userAgent
-                        }
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.is_ai_bot) {
-                    document.getElementById('status').innerHTML = '🚨 AI BOT DETECTED!';
-                    document.getElementById('status').className = 'status success';
-                } else {
-                    document.getElementById('status').innerHTML = '👤 Human visitor detected';
-                    document.getElementById('status').className = 'status success';
-                }
-                
-                document.getElementById('results').innerHTML = `
-                    <h3>Results:</h3>
-                    <p><strong>Bot Name:</strong> ${result.bot_name || 'None'}</p>
-                    <p><strong>Method:</strong> ${result.detection_method || 'Unknown'}</p>
-                    <p><strong>Confidence:</strong> ${(result.confidence * 100).toFixed(1)}%</p>
-                `;
-                
-            } catch (error) {
-                document.getElementById('status').innerHTML = '❌ Detection failed: ' + error.message;
-                document.getElementById('status').className = 'status error';
-            }
-        }
-        
-        // Auto-run detection on page load
-        window.addEventListener('load', runDetection);
-    </script>
 </body>
 </html>
     """
