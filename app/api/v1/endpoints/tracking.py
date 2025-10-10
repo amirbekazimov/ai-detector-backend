@@ -11,8 +11,76 @@ from app.services.site_service import SiteService
 from app.services.tracking_service import TrackingEventService
 from app.utils.logging import log_error, log_tracking_event
 from app.core.config import settings
+import ipaddress
 
 router = APIRouter()
+
+
+def get_real_client_ip(request: Request) -> str:
+    """
+    Extract real client IP address from request headers.
+    Handles various proxy configurations automatically.
+    """
+    # List of headers to check in order of priority
+    ip_headers = [
+        'CF-Connecting-IP',      # Cloudflare
+        'X-Forwarded-For',       # Standard proxy header
+        'X-Real-IP',            # Nginx proxy
+        'X-Client-IP',          # Apache proxy
+        'X-Forwarded',          # Alternative
+        'Forwarded-For',        # Alternative
+        'Forwarded',            # RFC 7239
+    ]
+    
+    # Check each header
+    for header in ip_headers:
+        if header in request.headers:
+            ip_value = request.headers[header]
+            
+            # X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2)
+            if header == 'X-Forwarded-For':
+                # Take the first IP (original client)
+                ip_value = ip_value.split(',')[0].strip()
+            
+            # Validate IP address
+            if is_valid_public_ip(ip_value):
+                return ip_value
+    
+    # Fallback to direct connection IP
+    direct_ip = request.client.host if request.client else "unknown"
+    
+    # If direct IP is private/internal, try to get from other sources
+    if not is_valid_public_ip(direct_ip):
+        # Check if there's any IP in headers that might be valid
+        for header in ip_headers:
+            if header in request.headers:
+                ip_value = request.headers[header]
+                if header == 'X-Forwarded-For':
+                    ip_value = ip_value.split(',')[0].strip()
+                
+                # Return first valid IP found, even if private
+                if ip_value and ip_value != "unknown":
+                    return ip_value
+    
+    return direct_ip
+
+
+def is_valid_public_ip(ip_str: str) -> bool:
+    """
+    Check if IP is valid and public (not private/internal).
+    """
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        
+        # Check if it's a private IP
+        if ip.is_private or ip.is_loopback or ip.is_link_local:
+            return False
+            
+        # Check if it's a valid public IP
+        return not ip.is_reserved
+        
+    except ValueError:
+        return False
 
 
 @router.get("/{site_id}.js", response_class=PlainTextResponse)
@@ -479,8 +547,8 @@ async def detect_ai_bot(
         except:
             data = {}
         
-        # Get client IP from request_headers or direct headers
-        client_ip = request.client.host if request.client else "unknown"
+        # Get client IP with improved extraction
+        client_ip = get_real_client_ip(request)
         
         # First try to get IP from request_headers in JSON data
         if "request_headers" in data and isinstance(data["request_headers"], dict):
@@ -587,8 +655,8 @@ async def test_chatgpt_page(request: Request, db: Session = Depends(get_db)):
     # Run AI detection on server side
     from app.services.ai_detection_service import AIBotDetectionService
     
-    # Get client IP and User-Agent
-    client_ip = request.client.host if request.client else "unknown"
+    # Get client IP and User-Agent with improved IP extraction
+    client_ip = get_real_client_ip(request)
     user_agent = request.headers.get("user-agent", "")
     
     # Detect AI bot
